@@ -1,9 +1,10 @@
 // app/login.tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, Button, StyleSheet, Text, TextInput, View } from "react-native";
 import { useData } from "../context/DataContext";
+import { loadPortal, savePortal } from "../utils/storage";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -13,6 +14,17 @@ export default function LoginScreen() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const saved = await loadPortal();
+      if (saved) {
+        setUrl(saved.url);
+        setUsername(saved.username);
+        setPassword(saved.password);
+      }
+    })();
+  }, []);
 
   async function handleLogin() {
     const cleanedUrl = url.trim();
@@ -72,6 +84,11 @@ export default function LoginScreen() {
       dispatch({ type: "SET_LIVE", payload: liveData });
       dispatch({ type: "SET_VOD", payload: vodData });
       dispatch({ type: "SET_SERIES", payload: seriesData });
+      await savePortal({
+        url: cleanedUrl,
+        username: cleanedUsername,
+        password: cleanedPassword,
+      });
 
       router.replace("/home");
     } catch (e: any) {
