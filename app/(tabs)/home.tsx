@@ -1,7 +1,7 @@
 // app/home.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
-import { useData } from '../context/DataContext';
+import { useData } from '../../context/DataContext';
 
 const PAGE_SIZE = 10;
 
@@ -15,6 +15,12 @@ export default function HomeScreen() {
   const [seriesPage, setSeriesPage] = useState(1);
 
   const paginate = (data: any[], page: number) => data.slice(0, page * PAGE_SIZE);
+
+    useEffect(() => {
+    console.log("2 premiers liveStreams :", liveStreams.slice(0, 2));
+    console.log("2 premiers vodStreams :", vodStreams.slice(0, 2));
+    console.log("2 premiers seriesStreams :", seriesStreams.slice(0, 2));
+  }, [liveStreams, vodStreams, seriesStreams]);
 
 const getImageUri = (item: any, type: 'live' | 'vod' | 'series') => {
   if (type === 'live') return item.stream_icon || 'https://via.placeholder.com/100x100.png?text=TV';

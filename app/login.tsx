@@ -1,10 +1,8 @@
-// app/login.tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Alert, Button, StyleSheet, Text, TextInput, View } from "react-native";
 import { useData } from "../context/DataContext";
-import { loadPortal, savePortal } from "../utils/storage";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -17,14 +15,33 @@ export default function LoginScreen() {
 
   useEffect(() => {
     (async () => {
-      const saved = await loadPortal();
-      if (saved) {
-        setUrl(saved.url);
-        setUsername(saved.username);
-        setPassword(saved.password);
+      // Optionnel : charger dernier portail si tu veux remplir le formulaire
+      const portalsStr = await AsyncStorage.getItem("@portals");
+      const portals = portalsStr ? JSON.parse(portalsStr) : [];
+      if (portals.length > 0) {
+        const lastPortal = portals[0];
+        setUrl(lastPortal.url);
+        setUsername(lastPortal.username);
+        setPassword(lastPortal.password);
       }
     })();
   }, []);
+
+  async function savePortalInList(url: string, username: string, password: string) {
+    try {
+      const savedPortalsStr = await AsyncStorage.getItem("@portals");
+      const savedPortals = savedPortalsStr ? JSON.parse(savedPortalsStr) : [];
+      const exists = savedPortals.some(
+        (p: any) => p.url === url && p.username === username
+      );
+      if (!exists) {
+        savedPortals.unshift({ url, username, password }); // ajouter en début
+        await AsyncStorage.setItem("@portals", JSON.stringify(savedPortals));
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
 
   async function handleLogin() {
     const cleanedUrl = url.trim();
@@ -55,9 +72,7 @@ export default function LoginScreen() {
         setLoading(false);
         return;
       }
-      await AsyncStorage.setItem("portal_url", cleanedUrl);
-      await AsyncStorage.setItem("portal_username", cleanedUsername);
-      await AsyncStorage.setItem("portal_password", cleanedPassword);
+
       dispatch({ type: "SET_USER", payload: accountData.user_info });
 
       const [liveRes, vodRes, seriesRes] = await Promise.all([
@@ -72,8 +87,6 @@ export default function LoginScreen() {
         ),
       ]);
 
-      console.log("Live:", liveRes, "VOD:", vodRes, "Series:", seriesRes);
-
       if (!liveRes.ok || !vodRes.ok || !seriesRes.ok)
         throw new Error("Erreur lors de la récupération des flux");
 
@@ -84,13 +97,10 @@ export default function LoginScreen() {
       dispatch({ type: "SET_LIVE", payload: liveData });
       dispatch({ type: "SET_VOD", payload: vodData });
       dispatch({ type: "SET_SERIES", payload: seriesData });
-      await savePortal({
-        url: cleanedUrl,
-        username: cleanedUsername,
-        password: cleanedPassword,
-      });
 
-      router.replace("/home");
+      await savePortalInList(cleanedUrl, cleanedUsername, cleanedPassword);
+
+      router.replace("/(tabs)/home");
     } catch (e: any) {
       Alert.alert("Erreur", e.message || "Une erreur est survenue");
     } finally {
@@ -127,6 +137,10 @@ export default function LoginScreen() {
         title={loading ? "Connexion..." : "Se connecter"}
         onPress={handleLogin}
         disabled={loading}
+      />
+      <Button
+        title="Portails enregistrés"
+        onPress={() => router.push("/settings")}
       />
     </View>
   );

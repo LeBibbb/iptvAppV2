@@ -1,4 +1,3 @@
-// context/DataContext.tsx
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useReducer } from 'react';
 
@@ -55,43 +54,61 @@ const DataContext = createContext<{ state: State; dispatch: React.Dispatch<Actio
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  // Charger données stockées localement au démarrage
+  // Charger portail enregistré au démarrage, récupérer user et flux
   useEffect(() => {
-    async function loadData() {
+    async function init() {
       try {
         dispatch({ type: 'SET_LOADING', payload: true });
-        const savedUser = await AsyncStorage.getItem('@user');
-        const savedLive = await AsyncStorage.getItem('@liveStreams');
-        const savedVod = await AsyncStorage.getItem('@vodStreams');
-        const savedSeries = await AsyncStorage.getItem('@seriesStreams');
 
-        if (savedUser) dispatch({ type: 'SET_USER', payload: JSON.parse(savedUser) });
-        if (savedLive) dispatch({ type: 'SET_LIVE', payload: JSON.parse(savedLive) });
-        if (savedVod) dispatch({ type: 'SET_VOD', payload: JSON.parse(savedVod) });
-        if (savedSeries) dispatch({ type: 'SET_SERIES', payload: JSON.parse(savedSeries) });
+        const portalsStr = await AsyncStorage.getItem('@portals');
+        const portals = portalsStr ? JSON.parse(portalsStr) : [];
+        if (portals.length === 0) {
+          dispatch({ type: 'SET_LOADING', payload: false });
+          return;
+        }
+
+        // On prend le premier portail pour auto-connexion
+        const portal = portals[0];
+        const { url, username, password } = portal;
+
+        const baseUrl = url.startsWith("http") ? url : `http://${url}`;
+        const accountInfoUrl = `${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_account_info`;
+        const accountRes = await fetch(accountInfoUrl);
+        if (!accountRes.ok) throw new Error("Erreur réseau");
+        const accountData = await accountRes.json();
+
+        if (!accountData?.user_info?.status || accountData.user_info.status.toLowerCase() !== "active") {
+          dispatch({ type: 'SET_LOADING', payload: false });
+          return;
+        }
+
+        dispatch({ type: 'SET_USER', payload: accountData.user_info });
+
+        // Récupérer flux
+        const [liveRes, vodRes, seriesRes] = await Promise.all([
+          fetch(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_live_streams`),
+          fetch(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_vod_streams`),
+          fetch(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_series`)
+        ]);
+
+        if (!liveRes.ok || !vodRes.ok || !seriesRes.ok) throw new Error("Erreur récupération flux");
+
+        const liveData = await liveRes.json();
+        const vodData = await vodRes.json();
+        const seriesData = await seriesRes.json();
+
+        dispatch({ type: 'SET_LIVE', payload: liveData });
+        dispatch({ type: 'SET_VOD', payload: vodData });
+        dispatch({ type: 'SET_SERIES', payload: seriesData });
+
       } catch (e) {
-        dispatch({ type: 'SET_ERROR', payload: 'Erreur chargement local' });
+        dispatch({ type: 'SET_ERROR', payload: 'Erreur chargement initial' });
       } finally {
         dispatch({ type: 'SET_LOADING', payload: false });
       }
     }
-    loadData();
+    init();
   }, []);
-
-  // Sauvegarder les données en local à chaque update
-  useEffect(() => {
-    async function saveData() {
-      try {
-        if(state.user) await AsyncStorage.setItem('@user', JSON.stringify(state.user));
-        await AsyncStorage.setItem('@liveStreams', JSON.stringify(state.liveStreams));
-        await AsyncStorage.setItem('@vodStreams', JSON.stringify(state.vodStreams));
-        await AsyncStorage.setItem('@seriesStreams', JSON.stringify(state.seriesStreams));
-      } catch (e) {
-        // Ignorer ou logguer
-      }
-    }
-    saveData();
-  }, [state.user, state.liveStreams, state.vodStreams, state.seriesStreams]);
 
   return <DataContext.Provider value={{ state, dispatch }}>{children}</DataContext.Provider>;
 };
