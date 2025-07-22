@@ -1,6 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useReducer } from 'react';
 
+type Credentials = {
+  username: string;
+  password: string;
+} | null;
+
 type State = {
   user: any | null;
   liveStreams: any[];
@@ -8,6 +13,7 @@ type State = {
   seriesStreams: any[];
   loading: boolean;
   error: string | null;
+  credentials: Credentials;
 };
 
 type Action =
@@ -17,6 +23,7 @@ type Action =
   | { type: 'SET_SERIES'; payload: any[] }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'SET_CREDENTIALS'; payload: Credentials }
   | { type: 'RESET' };
 
 const initialState: State = {
@@ -26,6 +33,7 @@ const initialState: State = {
   seriesStreams: [],
   loading: false,
   error: null,
+  credentials: null,
 };
 
 function reducer(state: State, action: Action): State {
@@ -42,6 +50,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, loading: action.payload };
     case 'SET_ERROR':
       return { ...state, error: action.payload };
+    case 'SET_CREDENTIALS':
+      return { ...state, credentials: action.payload };
     case 'RESET':
       return initialState;
     default:
@@ -69,6 +79,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         const portal = portals[0];
         const { url, username, password } = portal;
 
+        dispatch({ type: 'SET_CREDENTIALS', payload: { username, password } });
+
         const baseUrl = url.startsWith('http') ? url : `http://${url}`;
         const accountInfoUrl = `${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_account_info`;
         const accountRes = await fetch(accountInfoUrl);
@@ -88,14 +100,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           seriesRes,
           liveCatsRes,
           vodCatsRes,
-          seriesCatsRes
+          seriesCatsRes,
         ] = await Promise.all([
           fetch(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_live_streams`),
           fetch(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_vod_streams`),
           fetch(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_series`),
           fetch(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_live_categories`),
           fetch(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_vod_categories`),
-          fetch(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_series_categories`)
+          fetch(`${baseUrl}/player_api.php?username=${username}&password=${password}&action=get_series_categories`),
         ]);
 
         if (
@@ -129,7 +141,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         dispatch({ type: 'SET_LIVE', payload: mapCategory(liveData, liveCats) });
         dispatch({ type: 'SET_VOD', payload: mapCategory(vodData, vodCats) });
         dispatch({ type: 'SET_SERIES', payload: mapCategory(seriesData, seriesCats) });
-
       } catch (e) {
         console.error('Erreur init portail:', e);
         dispatch({ type: 'SET_ERROR', payload: 'Erreur chargement initial' });

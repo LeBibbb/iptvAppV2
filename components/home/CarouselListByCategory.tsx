@@ -13,7 +13,7 @@ const groupByCategory = (data: any[]) => {
   return grouped;
 };
 
-export default function CarouselListByCategory({ data, type }: { data: any[], type: string }) {
+export default function CarouselListByCategory({ data, type, credentials }: { data: any[]; type: string; credentials: { username: string; password: string } }) {
   const groupedData = groupByCategory(data);
 
   return (
@@ -21,7 +21,7 @@ export default function CarouselListByCategory({ data, type }: { data: any[], ty
       {Object.entries(groupedData).map(([category, items]) => (
         <View key={category} style={styles.block}>
           <Text style={styles.categoryTitle}>{category}</Text>
-          <CarouselList data={items} type={type} />
+          <CarouselList data={items} type={type} credentials={credentials} />
         </View>
       ))}
     </View>
