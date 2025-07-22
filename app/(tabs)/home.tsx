@@ -5,11 +5,16 @@ import TabsMenu from '../../components/home/TabsMenu';
 import { useData } from '../../context/DataContext';
 
 export default function HomeScreen() {
-  const { state } = useData();
-  const { user, liveStreams, vodStreams, seriesStreams } = state;
+const { state } = useData();
+const { user, liveStreams, vodStreams, seriesStreams } = state;
+
+console.log('2 premiers liveStreams :', liveStreams.slice(0, 2));
+console.log('2 premiers vodStreams :', vodStreams.slice(0, 2));
+console.log('2 premiers seriesStreams :', seriesStreams.slice(0, 2));
+
 
   const [activeTab, setActiveTab] = useState<'live' | 'vod' | 'series'>('live');
-
+ 
   const tabTitles = {
     live: '📡 Chaînes en direct',
     vod: '🎬 Films récents',
